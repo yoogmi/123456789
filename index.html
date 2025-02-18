@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <title>스네이크 게임 (벽 통과 버전)</title>
+    <style>
+        body {
+            background: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: sans-serif;
+        }
+        h1 {
+            color: #fff;
+        }
+        #gameCanvas {
+            background: #eee;
+            border: 1px solid #ccc;
+            display: block;
+        }
+        #score {
+            color: #fff;
+            font-size: 18px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>스네이크 게임 (벽 통과 버전)</h1>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div id="score">점수: 0</div>
+
+    <script>
+        // ===== 캔버스와 변수 초기화 =====
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const boxSize = 20; // 스네이크 몸통 및 먹이 한 칸의 크기
+        let snake = [{ x: 200, y: 200 }]; // 스네이크 몸통 좌표(배열의 0번 인덱스가 머리)
+        let direction = null;             // 현재 이동 방향('LEFT', 'RIGHT', 'UP', 'DOWN')
+        let food = getRandomFoodPosition(); // 먹이(Apple)의 좌표
+        let score = 0;                    // 점수
+        let gameInterval;                 // 게임 루프를 위한 setInterval 참조
+
+        // 게임 속도 설정 (150ms 간격으로 업데이트 -> 느리게)
+        const gameSpeed = 150; // 값이 클수록 느려집니다.
+
+        // 키보드 방향키 입력 이벤트 등록
+        document.addEventListener('keydown', changeDirection);
+
+        // 게임 시작
+        startGame();
+
+        // ====== 게임 시작 함수 ======
+        function startGame() {
+            // 0.15초(150ms)마다 게임 상태 갱신
+            gameInterval = setInterval(updateGame, gameSpeed);
+        }
+
+        // ====== 게임 갱신 함수 ======
+        function updateGame() {
+            moveSnake();       // 스네이크 이동
+            checkCollision();  // 자기 몸통 충돌만 확인 (벽 충돌 X)
+            draw();            // 화면 그리기
+        }
+
+        // ====== 화면 그리기 함수 ======
+        function draw() {
+            // 캔버스 초기화
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 스네이크 그리기
+            ctx.fillStyle = 'green';
+            snake.forEach(part => {
+                ctx.fillRect(part.x, part.y, boxSize, boxSize);
+            });
+
+            // 먹이(사과) 그리기
+            ctx.fillStyle = 'red';
+            ctx.fillRect(food.x, food.y, boxSize, boxSize);
+
+            // 점수 표시
+            document.getElementById('score').textContent = "점수: " + score;
+        }
+
+        // ====== 스네이크 이동 함수 ======
+        function moveSnake() {
+            if (!direction) return; // 아직 방향이 지정되지 않았다면(게임 시작 전)
+
+            // 현재 머리 위치를 기준으로 새 머리 좌표 결정
+            let head = { x: snake[0].x, y: snake[0].y };
+
+            switch (direction) {
+                case 'LEFT':
+                    head.x -= boxSize;
+                    break;
+                case 'RIGHT':
+                    head.x += boxSize;
+                    break;
+                case 'UP':
+                    head.y -= boxSize;
+                    break;
+                case 'DOWN':
+                    head.y += boxSize;
+                    break;
+            }
+
+            // === 벽을 지나가면 반대편으로 이동(랩어라운드) ===
+            if (head.x < 0) {
+                head.x = canvas.width - boxSize;
+            } else if (head.x >= canvas.width) {
+                head.x = 0;
+            }
+            if (head.y < 0) {
+                head.y = canvas.height - boxSize;
+            } else if (head.y >= canvas.height) {
+                head.y = 0;
+            }
+
+            // 새 머리를 배열의 앞쪽에 추가
+            snake.unshift(head);
+
+            // 먹이(사과)를 먹었는지 확인
+            if (head.x === food.x && head.y === food.y) {
+                score++;
+                food = getRandomFoodPosition(); // 새로운 먹이 위치 설정
+            } else {
+                // 먹지 못했다면, 꼬리를 하나 제거(길이 유지)
+                snake.pop();
+            }
+        }
+
+        // ====== 방향 전환 함수 ======
+        function changeDirection(e) {
+            // 키보드의 화살표 키를 받음
+            switch (e.key) {
+                case 'ArrowLeft':
+                    if (direction !== 'RIGHT') direction = 'LEFT';
+                    break;
+                case 'ArrowRight':
+                    if (direction !== 'LEFT') direction = 'RIGHT';
+                    break;
+                case 'ArrowUp':
+                    if (direction !== 'DOWN') direction = 'UP';
+                    break;
+                case 'ArrowDown':
+                    if (direction !== 'UP') direction = 'DOWN';
+                    break;
+            }
+        }
+
+        // ====== 자기 몸통 충돌 검사 함수 ======
+        function checkCollision() {
+            let head = snake[0];
+
+            // 자기 몸통 충돌
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    gameOver();
+                }
+            }
+        }
+
+        // ====== 게임 오버 처리 함수 ======
+        function gameOver() {
+            clearInterval(gameInterval);
+            alert(`게임 오버! 점수: ${score}`);
+
+            // 게임 재시작을 위해 변수 초기화
+            snake = [{ x: 200, y: 200 }];
+            direction = null;
+            food = getRandomFoodPosition();
+            score = 0;
+            startGame();
+        }
+
+        // ====== 랜덤 먹이 위치 생성 함수 ======
+        function getRandomFoodPosition() {
+            // boxSize 단위로 랜덤 위치 계산
+            let foodX = Math.floor(Math.random() * (canvas.width / boxSize)) * boxSize;
+            let foodY = Math.floor(Math.random() * (canvas.height / boxSize)) * boxSize;
+            return { x: foodX, y: foodY };
+        }
+    </script>
+</body>
+</html>
